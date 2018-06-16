@@ -103,6 +103,7 @@ namespace DWSIM.UI
                 var dialog = new OpenFileDialog();
                 dialog.Title = "Open File".Localize();
                 dialog.Filters.Add(new FileFilter("XML Simulation File".Localize(), new[] { ".dwxml", ".dwxmz" }));
+                dialog.Filters.Add(new FileFilter("Mobile XML Simulation File (Android/iOS)", new[] { ".xml" }));
                 dialog.MultiSelect = false;
                 dialog.CurrentFilterIndex = 0;
                 if (dialog.ShowDialog(this) == DialogResult.Ok)
@@ -340,6 +341,25 @@ namespace DWSIM.UI
                 var splash = new SplashScreen { MainFrm = this };
                 splash.Show();
             });
+
+            Task.Factory.StartNew(() =>
+            {
+                var updfile = AppDomain.CurrentDomain.BaseDirectory + Path.DirectorySeparatorChar + "version.info";
+                string uinfo = "0";
+                if (File.Exists(updfile)) uinfo = File.ReadAllText(updfile);
+                GlobalSettings.Settings.CurrentRunningVersion = Assembly.GetExecutingAssembly().GetName().Version.Major.ToString() + "." + Assembly.GetExecutingAssembly().GetName().Version.Minor.ToString() + "." + uinfo;
+                return SharedClasses.UpdateCheck.CheckForUpdates();
+            }).ContinueWith((t) =>
+                            {
+                                if (t.Result)
+                                {
+                                    if (MessageBox.Show("An updated version is available to download from the official website. Update DWSIM to fix bugs, crashes and take advantage of new features.", "Update Available", MessageBoxButtons.OKCancel, MessageBoxType.Information, MessageBoxDefaultButton.OK) == DialogResult.Ok)
+                                    {
+                                        Process.Start("http://dwsim.inforside.com.br/wiki/index.php?title=Downloads#DWSIM_for_Desktop_Systems");
+                                    }
+                                }
+                            }, TaskContinuationOptions.ExecuteSynchronously);
+
         }
 
         void LoadSimulation(string path)
@@ -368,6 +388,10 @@ namespace DWSIM.UI
                 else if (System.IO.Path.GetExtension(path).ToLower() == ".dwxml")
                 {
                     form.FlowsheetObject.LoadFromXML(XDocument.Load(path));
+                }
+                else if (System.IO.Path.GetExtension(path).ToLower() == ".xml")
+                {
+                    form.FlowsheetObject.LoadFromMXML(XDocument.Load(path));
                 }
                 form.FlowsheetObject.FilePath = path;
                 form.FlowsheetObject.FlowsheetOptions.FilePath = path;
